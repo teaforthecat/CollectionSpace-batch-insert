@@ -2,7 +2,7 @@
 
 import httplib2
 import pickle
-
+import time 
 from lxml import etree
 from collections import defaultdict
 from pprint import pprint
@@ -108,9 +108,9 @@ def create_cspace_record(record, resume_token, existing_records):
                   <collectionobjects_common:titleLanguage>eng</collectionobjects_common:titleLanguage>
               </collectionobjects_common:titleGroup>
           </collectionobjects_common:titleGroupList>
-          <collectionobjects_common:objectProductionDateGroup>
+          <collectionobjects_common:objectProductionDateGroupList>
             <collectionobjects_common:dateDisplayDate>%s</collectionobjects_common:dateDisplayDate>
-          </collectionobjects_common:objectProductionDateGroup>
+          </collectionobjects_common:objectProductionDateGroupList>
           <collectionobjects_common:materialGroupList>
             <collectionobjects_common:materialGroup>
               <collectionobjects_common:material>%s</collectionobjects_common:material>
@@ -130,8 +130,15 @@ def create_cspace_record(record, resume_token, existing_records):
           </collectionobjects_common:objectNameList>
           <collectionobjects_common:physicalDescription>%s</collectionobjects_common:physicalDescription>
           <collectionobjects_common:editionNumber>%s</collectionobjects_common:editionNumber>
-          <collectionobjects_common:dimensionSummary>%s</collectionobjects_common:dimensionSummary>
-          <collectionobjects_common:inscriptionContent>%s</collectionobjects_common:inscriptionContent>
+          <textualInscriptionGroupList>
+              <textualInscriptionGroup>
+                 <collectionobjects_common:inscriptionContent>
+                     %s
+                 </collectionobjects_common:inscriptionContent>
+              </textualInscriptionGroup>
+          </textualInscriptionGroupList>
+
+
           <collectionobjects_common:owners>
             <collectionobjects_common:owner>%s</collectionobjects_common:owner>
           </collectionobjects_common:owners>
@@ -146,7 +153,7 @@ def create_cspace_record(record, resume_token, existing_records):
            object_values['objectWorkType'], 
            object_values['descriptiveNote'], 
            object_values['displayEdition'], 
-           object_values['dimensionSummary'], 
+           # object_values['dimensionSummary'], 
            object_values['inscriptions'], 
            object_values['locationName'], 
            )
@@ -182,14 +189,19 @@ def parse_oai(xml, existing_records):
   records = root.find('{http://www.openarchives.org/OAI/2.0/}ListRecords')
   records_created = 0
   resume_token = None
-
+  i = 0
+  limit = False #10
   for record in records:
+    i = i + 1
+    if limit and i > limit:
+      #there must be a better way to limit the number of posts
+      exit()
     if record.tag == '{http://www.openarchives.org/OAI/2.0/}resumptionToken':
       resume_token = record.text
       print "Resuming with %s\n" % resume_token
     else:
       records_created += create_cspace_record(record, resume_token, 
-        existing_records)
+                                              existing_records)
   return (resume_token, records_created)
 
 def find_objects_in_cspace():
@@ -210,7 +222,7 @@ if __name__ == "__main__":
   total_records_created = 0
   resume_token, records_created = parse_oai(content, existing_records)
   total_records_created += records_created
-
+  
   while True:
     resp, content = h.request(
       OAI_URL + "?verb=ListRecords&resumptionToken=%s"  % resume_token,
